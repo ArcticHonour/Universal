@@ -1,6 +1,8 @@
 sudo chmod +x run_script.sh
 
-./run_script.sh
+./linux.sh
+
+.\powershell.ps1
 
 ps aux | grep python
 
