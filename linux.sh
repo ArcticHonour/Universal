@@ -4,7 +4,7 @@
 SCRIPT_DIR=$(pwd)
 
 # Set the script name
-SCRIPT_NAME="Israeli_monkey.py"
+SCRIPT_NAME="app.py"
 
 # Construct the full path to the script
 SCRIPT_PATH="$SCRIPT_DIR/$SCRIPT_NAME"
