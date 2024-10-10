@@ -17,7 +17,7 @@ if platform.system() == 'Linux':
 else:
     os.system("cls")
 
-username = "SwiftFox46"
+username = "silenthawk69"
 hook_url = "https://discord.com/api/webhooks/1283829399132573798/BQYGDwoOEfz7_PC1eSzmqO8BmkbAZwm0RmRgAXTC7Uisq3E4u2w5CMSaxkiF3Jeh0fBM"
 hook = Webhook(hook_url)
 
