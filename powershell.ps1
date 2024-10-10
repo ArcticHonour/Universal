@@ -2,7 +2,7 @@
 $scriptDir = Get-Location
 
 # Set the script name
-$scriptName = "Israeli_monkey.py"
+$scriptName = "app.py"
 
 # Construct the full path to the script
 $scriptPath = Join-Path $scriptDir $scriptName
