@@ -20,8 +20,8 @@ else:
     os.system("cls")
 
 username = "ArcticHonour_test"
-hook_url = "https://discord.com/api/webhooks/1283829399132573798/BQYGDwoOEfz7_PC1eSzmqO8BmkbAZwm0RmRgAXTC7Uisq3E4u2w5CMSaxkiF3Jeh0fBM"
-live_execute = "https://discord.com/api/webhooks/1307686709886062683/UQStVdOK09gUHktWxXt1x6gVYIy_q6Sb2OWM0smEbzWr_mDUibQx-f-TK5etnr7FbQ0M"
+hook_url = ""
+live_execute = ""
 hook2 = Webhook(live_execute)
 hook = Webhook(hook_url)
 
